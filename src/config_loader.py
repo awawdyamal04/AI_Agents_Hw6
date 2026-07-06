@@ -19,6 +19,8 @@ REQUIRED_KEYS = (
 
 REQUIRED_SCORING = ("cop_win", "thief_win", "cop_loss", "thief_loss")
 
+VALID_AGENT_PROVIDERS = ("deterministic", "ollama")
+
 
 def load_config(path) -> dict:
     """Read and validate config.json, returning the parsed dict."""
@@ -48,4 +50,11 @@ def validate(config: dict) -> bool:
     for key in REQUIRED_SCORING:
         if key not in config["scoring"]:
             raise ValueError(f"scoring missing required key: {key}")
+
+    # agent_provider is optional; default is deterministic. Validate if present.
+    provider = config.get("agent_provider", "deterministic")
+    if provider not in VALID_AGENT_PROVIDERS:
+        raise ValueError(
+            f"agent_provider must be one of {VALID_AGENT_PROVIDERS}, "
+            f"got {provider!r}")
     return True

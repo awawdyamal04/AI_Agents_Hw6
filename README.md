@@ -2,13 +2,16 @@
 
 > **Course:** Orchestration of AI Agents · **Assignment:** EX06 — Dual AI
 > Agent Conversation via MCP Servers
-> **Current status:** 🟢 **Phase 4 — local tool integration.** The local game
-> loop now routes **every** Cop/Thief action through an explicit, **MCP-shaped
-> tool call** (`cop.observe_board`, `cop.move`, `thief.use_joker_card`, …) via a
-> local tool dispatcher, and logs each call's tool name, input, result, and any
-> natural-language message. The FastMCP servers from Phase 3 remain separate and
-> are **not** started in a normal run. **Not yet implemented: LLM calls,
-> orchestrator over a live MCP transport, GUI, Gmail.**
+> **Current status:** 🟢 **Phase 5 — agent reasoning layer.** The Cop and Thief
+> now make **structured decisions** through a pluggable provider — a
+> **deterministic** provider (default, offline, reliable for tests) or a real
+> local **Ollama** provider (`smollm2:135m`). Each decision
+> (`natural_language_message`, `chosen_tool`, `tool_input`, `reasoning_summary`,
+> `provider_used`) is logged as an `agent_decision` record and then dispatched
+> through the existing **MCP-shaped tool layer** (`cop.*` / `thief.*`). The
+> FastMCP servers from Phase 3 remain separate and are **not** started in a
+> normal run. **Not yet implemented: GUI, Gmail sending, orchestrator over a
+> live MCP transport.**
 
 A dual autonomous AI-agent pursuit game. A **Cop** and a **Thief**, each
 running behind its **own MCP server**, converse in **free natural language**
@@ -252,6 +255,89 @@ pytest tests/test_tool_layer.py          # tool dispatcher + log + joker + run
 
 ---
 
+## Phase 5 — Agent Reasoning Layer (Ollama + deterministic)
+
+Phase 5 adds an **agent reasoning layer** (`src/agents/`) between the game loop
+and the tool layer. Each turn a `CopAgent` / `ThiefAgent` produces a
+**structured decision** and the loop dispatches the chosen tool as before.
+
+- **`src/agents/base_agent.py`** — builds the agent **input** (role, partial
+  observation, last opponent message, available tools, role objective, joker
+  availability), calls the provider, returns the structured **output**.
+- **`src/agents/provider.py`** — two providers, standard library only:
+  - **`DeterministicProvider`** (default) — wraps the Phase 2 placeholder
+    policies; no network, reliable for tests.
+  - **`OllamaProvider`** — calls the local Ollama HTTP API
+    (`POST /api/generate`) via `urllib`/`json`. If Ollama is unreachable it
+    raises **`OllamaUnavailable`** with install/run guidance — output is
+    **never faked** when `ollama` is selected.
+- **`src/agents/prompts.py`** — personas (Cop = focused detective, Thief =
+  playful trickster); both are instructed to return **JSON only**.
+- **`src/agents/cop_agent.py` / `thief_agent.py`** — role objectives, tool
+  menus, and the deterministic candidate action.
+
+**Structured decision** (`agent_decision` log record + agent return value):
+
+| field | meaning |
+|---|---|
+| `natural_language_message` | in-character text sent via `send_message` |
+| `chosen_tool` | `move` / `place_barrier` — dispatched as `role.tool` |
+| `tool_input` | `{"to": [r,c]}` or `{"cell": [r,c]}` |
+| `reasoning_summary` | one-line rationale (records any fallback) |
+| `provider_used` | `deterministic` or `ollama` |
+
+**Parsing / fallback.** In `ollama` mode a malformed or illegal model response
+(bad JSON, unknown tool, off-board cell) degrades to the **deterministic
+candidate**, and the fallback is noted in `reasoning_summary`. This applies
+**only** to formatting/validity — a **missing Ollama server** raises instead of
+falling back (we never fake Ollama output).
+
+### Config
+
+Three keys in `config.json` control the provider (deterministic stays default):
+
+```json
+"agent_provider": "deterministic",
+"ollama_model": "smollm2:135m",
+"ollama_base_url": "http://localhost:11434"
+```
+
+### Run deterministic mode (default, offline)
+
+```bash
+python -m src.main            # agent_provider = deterministic
+pytest tests/test_agents.py   # structure, shapes, logging, fallback
+```
+
+### Run Ollama mode (real local LLM)
+
+```bash
+# 1. Start Ollama and pull the small local model (one-time)
+ollama serve                  # if not already running
+ollama pull smollm2:135m
+
+# 2. Point the config at Ollama, then run
+#    edit config.json: "agent_provider": "ollama"
+python -m src.main
+#    or without editing the file, use a copy:
+#    (any config.json with agent_provider="ollama" works)
+```
+
+No secrets or API keys are used — Ollama is a **local** HTTP service at
+`http://localhost:11434`. If it is not running, the run fails clearly with an
+`OllamaUnavailable` message telling you to `ollama serve` / `ollama pull`.
+
+### Verify Phase 5
+
+```bash
+python -m src.main
+python -c "import json; print(next(json.loads(l) for l in open('results/logs/game_log.jsonl') if json.loads(l).get('type')=='agent_decision'))"
+find src -name "*.py" -exec wc -l {} +   # every file < 150 lines
+pytest tests/                            # full suite
+```
+
+---
+
 ## Architecture
 
 ```mermaid
@@ -325,6 +411,12 @@ AI_Agents_Hw6/
 │   │   ├── local_adapter.py  # in-process tools that call the engine directly
 │   │   ├── dispatcher.py     # routes + logs cop.*/thief.* tool calls
 │   │   └── messages.py       # deterministic NL message templates (no LLM)
+│   ├── agents/               # Phase 5: agent reasoning layer
+│   │   ├── base_agent.py     # structured agent input/output + provider wiring
+│   │   ├── provider.py       # DeterministicProvider + OllamaProvider (stdlib)
+│   │   ├── prompts.py        # Cop/Thief personas, JSON-only prompts
+│   │   ├── cop_agent.py      # detective persona + candidate action
+│   │   └── thief_agent.py    # trickster persona + candidate action
 │   ├── joker/joker.py        # Joker data hooks (disabled by default)
 │   ├── reporting/report_builder.py  # build final_report.json
 │   └── util/logging_util.py  # JSONL trace writer
@@ -384,29 +476,31 @@ pytest tests/
 
 ## Current Status
 
-**Phase 4 — local tool integration.** On top of the Phase 3 servers, the local
-game loop now routes **every** Cop/Thief action through an explicit,
-MCP-shaped tool call via `src/tools/dispatcher.py` (`ToolDispatcher`) against
-`src/tools/local_adapter.py` (`LocalToolAdapter`). The dispatcher imports the
-tool names from the Phase 3 server modules, so local and MCP modes share one
-vocabulary (`cop.observe_board`, `cop.move`, `cop.place_barrier`,
-`thief.observe_board`, `thief.move`, `thief.use_joker_card`, …). Each call is
-logged as a `tool_call` record with the **agent role**, **tool name**, **tool
-input**, **tool result**, and any **natural-language message**. The engine is
-**not** rewritten — the tool layer is the access path, not a second copy of the
-state; scoring and the sub-game winner stay in the loop. The FastMCP servers
-stay separate and are **never started** by `python -m src.main`. `pytest
-tests/` (34 tests, 1 skipped when FastMCP is absent) now also covers the tool
-dispatcher, log tool-name coverage, the Joker tool's observation-only effect,
-and that a normal run still writes the report and logs. Every Python file stays
-under 150 lines.
+**Phase 5 — agent reasoning layer.** On top of the Phase 4 tool layer, the game
+loop now calls a `CopAgent` / `ThiefAgent` **before** dispatching each
+MCP-shaped tool call. Each agent returns a **structured decision**
+(`natural_language_message`, `chosen_tool`, `tool_input`, `reasoning_summary`,
+`provider_used`), logged as an `agent_decision` record, and the loop then
+dispatches the chosen `role.tool` exactly as before. Decisions come from a
+pluggable provider: **`deterministic`** (default — wraps the placeholder
+policies, offline, reliable for tests) or **`ollama`** (a real local
+`smollm2:135m` via the Ollama HTTP API, standard-library `urllib`/`json` only).
+When `ollama` is selected but the server is unreachable, the run fails clearly
+with `OllamaUnavailable`; a malformed/illegal model response degrades to the
+deterministic candidate (noted in `reasoning_summary`) — output is never faked.
+`pytest tests/` (47 passed, 1 skipped when FastMCP is absent) covers the
+deterministic decision structure, the Cop/Thief output shapes, `agent_decision`
+logging, offline determinism, and safe malformed-JSON parsing. Every Python
+file stays under 150 lines, and the deterministic run still yields the baseline
+**Cop 120 / Thief 30**.
 
-**Current limitations:** **no LLM calls yet, no orchestrator over a live MCP
-transport yet, no GUI yet, and no Gmail sending yet.** The natural-language
-messages are deterministic templates, not model output. MCP host/port settings
-are **local `localhost` URLs only** — no cloud URLs are configured or faked.
-Reported outcomes come only from real runs (see *Observed baseline result*
-above); nothing is invented.
+**Current limitations:** **no GUI yet and no Gmail sending yet**, and no
+orchestrator over a live MCP transport yet. Only `agent_provider: ollama`
+performs real LLM calls; the default remains deterministic. No secrets or API
+keys are used — Ollama is a **local** service (`http://localhost:11434`). MCP
+host/port settings are **local `localhost` URLs only** — no cloud URLs are
+configured or faked. Reported outcomes come only from real runs (see *Observed
+baseline result* above); nothing is invented.
 
 ---
 

@@ -13,12 +13,16 @@ from pathlib import Path
 
 def build_report(config: dict, results: list, totals) -> dict:
     joker = config.get("joker_protocol", {})
+    provider = config.get("agent_provider", "deterministic")
     return {
         "project_name": config.get("project_name"),
-        "phase": "phase-4-local-tool-integration",
+        "phase": "phase-5-agent-reasoning-layer",
         "execution": {"mode": "local",
                       "tool_layer": "local-adapter",
-                      "tool_names": "mcp-shaped (cop.* / thief.*)"},
+                      "tool_names": "mcp-shaped (cop.* / thief.*)",
+                      "agent_provider": provider,
+                      "ollama_model": config.get("ollama_model")
+                      if provider == "ollama" else None},
         "generated_at": datetime.now().astimezone().isoformat(),
         "timezone": "Asia/Jerusalem",
         "grid_size": config["grid_size"],
@@ -32,9 +36,10 @@ def build_report(config: dict, results: list, totals) -> dict:
                      "thief": "deterministic-greedy-evasion"},
         "sub_games": results,
         "totals": {"cop": totals.cop, "thief": totals.thief},
-        "notes": ("Deterministic placeholder policies. Actions routed through "
-                  "the local MCP-shaped tool layer (cop.*/thief.*). No LLM, "
-                  "no GUI, no Gmail, no blocking MCP servers in this run."),
+        "notes": ("Agent reasoning layer decides each turn (provider: "
+                  f"{provider}); actions routed through the local MCP-shaped "
+                  "tool layer (cop.*/thief.*). No GUI, no Gmail, no blocking "
+                  "MCP servers in this run."),
     }
 
 

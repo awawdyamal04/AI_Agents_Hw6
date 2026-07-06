@@ -11,6 +11,9 @@
   "random_seed": 42,
   "cop_uses_barriers": true,
   "barrier_interval": 4,
+  "agent_provider": "deterministic",
+  "ollama_model": "smollm2:135m",
+  "ollama_base_url": "http://localhost:11434",
   "scoring": {
     "cop_win": 20,
     "thief_win": 10,
