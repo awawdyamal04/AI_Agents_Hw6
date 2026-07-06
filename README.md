@@ -2,10 +2,11 @@
 
 > **Course:** Orchestration of AI Agents · **Assignment:** EX06 — Dual AI
 > Agent Conversation via MCP Servers
-> **Current status:** 🟢 **Phase 2 — core game engine + local playable
-> simulation.** The full engine (board, rules, capture, barriers, scoring,
-> observation, Joker hooks) runs locally with deterministic placeholder
-> policies. **Not yet implemented: real MCP servers, LLM calls, GUI, Gmail.**
+> **Current status:** 🟢 **Phase 3 — MCP server layer.** Two separate FastMCP
+> servers (Cop, Thief) now expose the agent tools over MCP, wrapping the
+> existing Phase 2 engine (board, rules, capture, barriers, scoring,
+> observation, Joker hooks). The servers are **tools only** — no LLM.
+> **Not yet implemented: LLM calls, orchestrator/client, GUI, Gmail.**
 
 A dual autonomous AI-agent pursuit game. A **Cop** and a **Thief**, each
 running behind its **own MCP server**, converse in **free natural language**
@@ -152,6 +153,54 @@ outcome non-trivial.
 
 ---
 
+## Phase 3 — MCP Server Layer
+
+Phase 3 adds two **independent FastMCP servers**, one per agent. Each server
+**exposes tools only** and wraps the existing engine through a shared
+`GameSession` (`src/mcp/session.py`) — the engine is **not** rewritten. There
+is still **no LLM** here: the LLM belongs to the client/orchestrator (Phase 4).
+
+- **`src/mcp/cop_server.py`** — Cop tools: `observe_board`, `receive_message`,
+  `send_message`, `move`, `place_barrier`, `get_score`.
+- **`src/mcp/thief_server.py`** — Thief tools: `observe_board`,
+  `receive_message`, `send_message`, `move`, `use_joker_card`, `get_score`.
+- **`src/mcp/session.py`** — FastMCP loader (`require_fastmcp`) + `GameSession`
+  wrapping `Board`, `rules`, `observation`, `scoring`, and `Joker`.
+
+`create_server()` **builds but never runs** the server, so tests can import and
+construct it without blocking. If FastMCP is missing, `require_fastmcp()` (and
+therefore `create_server()`) raises a clear error naming the package to
+install (`pip install mcp`, or `pip install fastmcp`). Imports of the modules
+themselves succeed regardless — the FastMCP dependency is loaded lazily.
+
+### Run the servers (local only)
+
+```bash
+# Cop and Thief MCP servers — separate localhost ports from config.json
+python -m src.mcp.cop_server   --config config.json   # localhost:8001
+python -m src.mcp.thief_server --config config.json   # localhost:8002
+```
+
+> Transport defaults to FastMCP's stdio; the `mcp.cop_server` / `mcp.thief_server`
+> host+port in `config.json` are **local `localhost` URLs only** — no cloud URLs
+> are configured or faked. Cloud deployment (token auth + firewall/tunnel) is a
+> later phase.
+
+### Smoke check (no blocking server started)
+
+```bash
+python -c "from src.mcp.cop_server import create_server; \
+from src.mcp.thief_server import create_server; print('mcp imports ok')"
+pytest tests/test_mcp_servers.py     # tool surfaces + GameSession behavior
+```
+
+**State-sync note:** in Phase 3 each server owns its own `GameSession` so its
+tools are functional and independently testable. Driving one shared board
+across both servers (mutual position validation) is the **orchestrator's** job
+in Phase 4.
+
+---
+
 ## Architecture
 
 ```mermaid
@@ -192,10 +241,11 @@ See `plan.md` for the full folder structure and data flow.
 
 ---
 
-## Current Folder Structure (Phase 2)
+## Current Folder Structure (Phase 3)
 
-The engine and local simulation are implemented. MCP servers, agents, and
-reporting-to-Gmail arrive in later phases per `plan.md`.
+The engine, local simulation, and the two MCP servers are implemented. The
+orchestrator/LLM client, GUI, and reporting-to-Gmail arrive in later phases per
+`plan.md`.
 
 ```
 AI_Agents_Hw6/
@@ -216,11 +266,15 @@ AI_Agents_Hw6/
 │   │   ├── common.py         # shared legal-move helper
 │   │   ├── cop_policy.py     # deterministic greedy pursuit + barriers
 │   │   └── thief_policy.py   # deterministic evasion
+│   ├── mcp/                  # Phase 3: FastMCP servers (tools only, no LLM)
+│   │   ├── session.py        # FastMCP loader + GameSession (wraps engine)
+│   │   ├── cop_server.py     # Cop tools over MCP
+│   │   └── thief_server.py   # Thief tools over MCP
 │   ├── joker/joker.py        # Joker data hooks (disabled by default)
 │   ├── reporting/report_builder.py  # build final_report.json
 │   └── util/logging_util.py  # JSONL trace writer
 ├── tests/                    # test_rules · test_scoring · test_observation
-│   └── ...                   # test_game_loop · test_skeleton
+│   └── ...                   # test_game_loop · test_skeleton · test_mcp_servers
 └── results/
     ├── logs/game_log.jsonl       # per-move trace (generated)
     ├── reports/final_report.json # series summary (generated)
@@ -236,16 +290,20 @@ python -m src.main
 This runs the full local simulation (6 sub-games) and writes
 `results/logs/game_log.jsonl` and `results/reports/final_report.json`.
 
-## Planned CLI Commands (later phases)
-
-> These commands are **planned**, not yet implemented (Phase 2 has no MCP
-> servers, LLM, GUI, or Gmail).
+## MCP Server Commands (Phase 3 — implemented)
 
 ```bash
-# Start the two MCP servers (separate localhost ports)
-python -m src.mcp.cop_server   --config config.json
-python -m src.mcp.thief_server --config config.json
+# Start the two MCP servers (separate localhost ports, tools only, no LLM)
+python -m src.mcp.cop_server   --config config.json   # localhost:8001
+python -m src.mcp.thief_server --config config.json   # localhost:8002
+```
 
+## Planned CLI Commands (later phases)
+
+> These commands are **planned**, not yet implemented (there is no
+> orchestrator, LLM, GUI, or Gmail yet).
+
+```bash
 # Run a full game (6 sub-games) via the orchestrator / MCP client
 python -m src.client.orchestrator --config config.json
 
@@ -269,19 +327,24 @@ pytest tests/
 
 ## Current Status
 
-**Phase 2 — core game engine + local playable simulation.** The full engine
-(board, rules, capture, barriers, scoring, partial observation, and the Joker
-data hooks) is implemented under `src/`, driven entirely by `config.json`.
-`python -m src.main` runs a complete 6-sub-game series with deterministic
-placeholder policies and writes `results/logs/game_log.jsonl` and
-`results/reports/final_report.json`. Unit tests (`pytest tests/`) cover
-movement, capture, barriers, scoring, the Joker no-mutation invariant, and
-both win conditions end-to-end. Every Python file stays under 150 lines.
+**Phase 3 — MCP server layer.** On top of the Phase 2 engine, two independent
+FastMCP servers now expose the agent tools: `src/mcp/cop_server.py`
+(`observe_board`, `receive_message`, `send_message`, `move`, `place_barrier`,
+`get_score`) and `src/mcp/thief_server.py` (same, with `use_joker_card` in
+place of `place_barrier`). Both wrap the existing engine through
+`src/mcp/session.py` — the engine is not rewritten. The servers are **tools
+only**; no LLM runs in them. `create_server()` builds but never runs the
+server, and FastMCP is imported lazily so the modules import cleanly even when
+FastMCP is not installed (`create_server()` then fails with a clear
+`pip install mcp` / `pip install fastmcp` message). `pytest tests/` (28 tests)
+covers the Phase 2 engine plus the new tool surfaces and `GameSession`
+behavior. Every Python file stays under 150 lines.
 
-**Current limitations:** **no real MCP servers yet, no LLM calls yet, no GUI
-yet, and no Gmail sending yet** — the placeholder policies stand in for the
-future LLM-driven MCP agents. Reported outcomes come only from real runs (see
-*Observed baseline result* above); nothing is invented.
+**Current limitations:** **no LLM calls yet, no orchestrator/client yet, no GUI
+yet, and no Gmail sending yet.** MCP host/port settings are **local
+`localhost` URLs only** — no cloud URLs are configured or faked. Reported
+outcomes come only from real runs (see *Observed baseline result* above);
+nothing is invented.
 
 ---
 

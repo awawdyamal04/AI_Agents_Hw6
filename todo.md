@@ -51,12 +51,23 @@ Legend: `[ ]` open · `[x]` done · ⭐ optional / bonus.
 
 ## Phase 3 — MCP Servers
 
-- [ ] `mcp/tools.py` — shared tool schemas (validate/apply move, barrier,
-  send/receive message).
-- [ ] `mcp/cop_server.py` — FastMCP server exposing Cop tools (tools only).
-- [ ] `mcp/thief_server.py` — FastMCP server exposing Thief tools.
-- [ ] Run both servers on separate `localhost` ports.
-- [ ] Verify mutual position validation between the two servers.
+- [x] `mcp/session.py` — shared FastMCP loader + `GameSession` wrapping the
+  engine (observe, move, barrier, send/receive message, joker, score).
+  *(implemented as `session.py` rather than `tools.py`)*
+- [x] `mcp/cop_server.py` — FastMCP server exposing Cop tools (tools only):
+  observe_board, receive_message, send_message, move, place_barrier, get_score.
+- [x] `mcp/thief_server.py` — FastMCP server exposing Thief tools: observe_board,
+  receive_message, send_message, move, use_joker_card, get_score.
+- [x] Fail clearly (`pip install mcp` / `fastmcp`) when FastMCP is unavailable;
+  `create_server()` builds but never runs, so imports stay non-blocking.
+- [x] `tests/test_mcp_servers.py` — tool surfaces + `GameSession` behavior
+  (import without starting a blocking server).
+- [x] CLI entry points: `python -m src.mcp.cop_server` /
+  `python -m src.mcp.thief_server` with local `localhost` host/port from config.
+- [ ] Actually run both servers on separate `localhost` ports (needs FastMCP
+  installed; not yet verified live).
+- [ ] Verify mutual position validation between the two servers (Phase 4
+  orchestrator drives one shared board).
 
 ---
 
