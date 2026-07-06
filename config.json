@@ -7,6 +7,10 @@
   "max_moves_per_subgame": 25,
   "num_subgames": 6,
   "max_cop_barriers": 5,
+  "diagonal_movement": true,
+  "random_seed": 42,
+  "cop_uses_barriers": true,
+  "barrier_interval": 4,
   "scoring": {
     "cop_win": 20,
     "thief_win": 10,
@@ -32,6 +36,8 @@
   },
   "reporting": {
     "json_report_path": "results/reports/game_report.json",
+    "final_report_path": "results/reports/final_report.json",
+    "game_log_path": "results/logs/game_log.jsonl",
     "logs_path": "results/logs",
     "plots_path": "results/plots",
     "gmail_recipient": "rmisegal+uoh26b@gmail.com",

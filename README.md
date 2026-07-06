@@ -2,9 +2,10 @@
 
 > **Course:** Orchestration of AI Agents · **Assignment:** EX06 — Dual AI
 > Agent Conversation via MCP Servers
-> **Current status:** 🟡 **Phase 1 — project skeleton + configuration only.
-> No game logic, agents, or MCP behavior implemented yet, and no results
-> exist.**
+> **Current status:** 🟢 **Phase 2 — core game engine + local playable
+> simulation.** The full engine (board, rules, capture, barriers, scoring,
+> observation, Joker hooks) runs locally with deterministic placeholder
+> policies. **Not yet implemented: real MCP servers, LLM calls, GUI, Gmail.**
 
 A dual autonomous AI-agent pursuit game. A **Cop** and a **Thief**, each
 running behind its **own MCP server**, converse in **free natural language**
@@ -83,6 +84,72 @@ With it disabled, the project follows EX06 exactly.
 change scoring · replace any baseline rule. True state `S`, transitions `P`,
 and rewards `R` are untouched — only the observation `Ωᵢ` is affected.
 
+In **Phase 2 only the data hooks** exist: card lifecycle (grant to the
+sub-game winner) and one-shot false-signal injection into the opponent's
+observation, with logging. It is **disabled by default**, so the default run
+follows the EX06 baseline exactly. A unit test asserts the injection never
+mutates the true state `S`.
+
+---
+
+## Phase 2 — Local Simulation
+
+Phase 2 implements the **core game engine** and a **local, playable
+simulation** that runs entirely offline — no network, no LLM, no MCP.
+
+- **Engine (true state `S`)** — `src/engine/`: `board.py` (grid + state),
+  `rules.py` (legal moves, capture, barriers), `observation.py` (partial
+  view `Ωᵢ`), `scoring.py` (scoring table + totals), `game_loop.py` (sub-game
+  + 6-game series driver).
+- **Deterministic placeholder policies** — `src/policies/`: a greedy-pursuit
+  Cop and a distance-maximizing, centre-seeking Thief. These are **stand-ins
+  for the future LLM/MCP agents** so the pipeline can run end-to-end; they are
+  not optimized strategy (strategy quality is explicitly *not* graded).
+- **Joker data hooks** — `src/joker/joker.py` (disabled by default).
+- **Config-driven** — every parameter comes from `config.json`; nothing is
+  hard-coded. Phase 2 added `random_seed`, `cop_uses_barriers`,
+  `barrier_interval`, `diagonal_movement`, and the output paths.
+
+### Run it
+
+```bash
+python -m src.main                       # uses ./config.json
+python -m src.main --config config.json  # explicit config
+pytest tests/                            # unit tests
+```
+
+### Movement rule (per the docs)
+
+The assignment docs (`prd.md` §7.2, and the board row of the baseline table
+above) **explicitly allow diagonal movement**. The engine therefore uses
+**8-directional (king-move) movement** plus staying in place — *not*
+4-directional. This is surfaced in the report as `"diagonal_movement": true`.
+
+### Outputs
+
+- `results/logs/game_log.jsonl` — per-move trace (start state, each agent's
+  action + resulting state, any Joker injection, per-sub-game result).
+- `results/reports/final_report.json` — structured summary of all 6 sub-games
+  plus accumulated totals.
+
+### Observed baseline result (not invented — produced by a real run)
+
+With the baseline `config.json` (5×5 grid, 25 moves, `random_seed: 42`) the
+Cop captures the Thief in every sub-game (each in 3–4 moves), giving totals
+**Cop = 120, Thief = 30**. This is the expected outcome of *simple* deterministic
+policies: in discrete king-move pursuit on a bounded grid, a pursuer that moves
+second corners a myopic (one-step-greedy) evader — increasing the grid size does
+not help the greedy Thief. The Thief-win branch and its `5 / 10` scoring are
+verified through the real game loop by `tests/test_game_loop.py`
+(short-horizon sub-game). These placeholder policies will be replaced by
+LLM-driven MCP agents in later phases, where deception and inference make the
+outcome non-trivial.
+
+> Note: the 30–90 score band in `prd.md` §7.4 describes a **group** that plays
+> 3 sub-games as Cop and 3 as Thief. The Phase-2 self-play run instead uses one
+> policy as Cop and one as Thief for all 6 sub-games, so its per-side totals are
+> not bounded by that band.
+
 ---
 
 ## Architecture
@@ -125,47 +192,54 @@ See `plan.md` for the full folder structure and data flow.
 
 ---
 
-## Current Folder Structure (Phase 1)
+## Current Folder Structure (Phase 2)
 
-The skeleton and configuration are in place. Implementation modules
-(engine, MCP servers, agents, reporting) will be added in later phases per
-`plan.md`.
+The engine and local simulation are implemented. MCP servers, agents, and
+reporting-to-Gmail arrive in later phases per `plan.md`.
 
 ```
 AI_Agents_Hw6/
 ├── README.md                 # this overview
-├── prd.md                    # product requirements
-├── plan.md                   # architecture + folder/data flow
-├── todo.md                   # phased checklist
+├── prd.md · plan.md · todo.md# requirements · architecture · checklist
 ├── config.json               # ALL parameters (no hard-coding)
-├── requirements.txt          # declared dependencies for planned phases
-├── .gitignore                # excludes secrets, caches, generated results
+├── requirements.txt
 ├── src/
-│   ├── __init__.py
-│   └── main.py               # Phase 1 CLI placeholder (no game logic)
-├── tests/
-│   ├── __init__.py
-│   └── test_skeleton.py      # smoke tests for structure + config
-└── results/                  # generated outputs (empty — nothing produced)
-    ├── logs/                 # per-move dialogue + board snapshots
-    ├── reports/              # game_report.json
-    └── plots/                # optional visualizations
+│   ├── main.py               # Phase 2 CLI: runs the local simulation
+│   ├── config_loader.py      # load + validate config.json
+│   ├── engine/
+│   │   ├── board.py          # grid + true state S
+│   │   ├── rules.py          # legal moves (diagonal), capture, barriers
+│   │   ├── observation.py    # partial view Ωᵢ (+ Joker injection point)
+│   │   ├── scoring.py        # scoring table + accumulated totals
+│   │   └── game_loop.py      # sub-game + 6-game series driver
+│   ├── policies/
+│   │   ├── common.py         # shared legal-move helper
+│   │   ├── cop_policy.py     # deterministic greedy pursuit + barriers
+│   │   └── thief_policy.py   # deterministic evasion
+│   ├── joker/joker.py        # Joker data hooks (disabled by default)
+│   ├── reporting/report_builder.py  # build final_report.json
+│   └── util/logging_util.py  # JSONL trace writer
+├── tests/                    # test_rules · test_scoring · test_observation
+│   └── ...                   # test_game_loop · test_skeleton
+└── results/
+    ├── logs/game_log.jsonl       # per-move trace (generated)
+    ├── reports/final_report.json # series summary (generated)
+    └── plots/                    # optional visualizations (later phase)
 ```
 
-## Planned Run Command
-
-Phase 1 exposes only a placeholder entry point that confirms the skeleton is
-ready — it does **not** run the game:
+## Run Command
 
 ```bash
 python -m src.main
 ```
 
-The full planned CLI (servers, orchestrator, reporting) is listed below.
+This runs the full local simulation (6 sub-games) and writes
+`results/logs/game_log.jsonl` and `results/reports/final_report.json`.
 
-## Planned CLI Commands
+## Planned CLI Commands (later phases)
 
-> These commands are **planned**, not yet implemented (Phase 1 skeleton only).
+> These commands are **planned**, not yet implemented (Phase 2 has no MCP
+> servers, LLM, GUI, or Gmail).
 
 ```bash
 # Start the two MCP servers (separate localhost ports)
@@ -195,14 +269,19 @@ pytest tests/
 
 ## Current Status
 
-**Phase 1 — project skeleton + configuration.** The repository now contains
-the folder structure, `config.json` with all assignment parameters,
-`requirements.txt`, `.gitignore`, and a placeholder `src/main.py` entry point
-(`python -m src.main`) that only reports the skeleton is ready. **No game
-logic, agents, or MCP behavior has been implemented, no runs have been made,
-and no results exist yet.** No performance numbers or game outcomes are
-reported because none have been produced. Core-engine implementation begins at
-Phase 2 per `todo.md`.
+**Phase 2 — core game engine + local playable simulation.** The full engine
+(board, rules, capture, barriers, scoring, partial observation, and the Joker
+data hooks) is implemented under `src/`, driven entirely by `config.json`.
+`python -m src.main` runs a complete 6-sub-game series with deterministic
+placeholder policies and writes `results/logs/game_log.jsonl` and
+`results/reports/final_report.json`. Unit tests (`pytest tests/`) cover
+movement, capture, barriers, scoring, the Joker no-mutation invariant, and
+both win conditions end-to-end. Every Python file stays under 150 lines.
+
+**Current limitations:** **no real MCP servers yet, no LLM calls yet, no GUI
+yet, and no Gmail sending yet** — the placeholder policies stand in for the
+future LLM-driven MCP agents. Reported outcomes come only from real runs (see
+*Observed baseline result* above); nothing is invented.
 
 ---
 

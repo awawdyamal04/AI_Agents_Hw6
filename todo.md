@@ -27,21 +27,25 @@ Legend: `[ ]` open · `[x]` done · ⭐ optional / bonus.
 - [x] Create `config.json` with all parameters + defaults.
 - [x] Add `src/main.py` CLI placeholder (`python -m src.main`, no game logic).
 - [x] Add Phase 1 smoke test (`tests/test_skeleton.py`) for structure + config.
-- [ ] Implement `src/config_loader.py` (load + validate config).  *(Phase 2)*
-- [ ] Add empty module stubs (each will stay < 150 lines).  *(Phase 2)*
+- [x] Implement `src/config_loader.py` (load + validate config).
+- [x] Add engine/policy/joker/reporting modules (each stays < 150 lines).
 
 ---
 
 ## Phase 2 — Core Engine
 
-- [ ] `engine/board.py` — grid, cells, start positions, state machine.
-- [ ] `engine/rules.py` — move legality (incl. diagonals), capture detection.
-- [ ] `engine/rules.py` — barrier placement + `max_barriers` cap (Cop only).
-- [ ] `engine/scoring.py` — per sub-game table + accumulated totals (30–90).
-- [ ] `engine/observation.py` — partial-view builder per agent.
-- [ ] `engine/game_loop.py` — sub-game (25 moves) + 6-game series driver.
+- [x] `engine/board.py` — grid, cells, start positions, state machine.
+- [x] `engine/rules.py` — move legality (incl. diagonals), capture detection.
+- [x] `engine/rules.py` — barrier placement + `max_barriers` cap (Cop only).
+- [x] `engine/scoring.py` — per sub-game table + accumulated totals.
+- [x] `engine/observation.py` — partial-view builder per agent.
+- [x] `engine/game_loop.py` — sub-game (25 moves) + 6-game series driver.
+- [x] Deterministic placeholder policies (`policies/cop_policy.py`,
+  `policies/thief_policy.py`) so the sim runs end-to-end without LLM/MCP.
+- [x] Local run entry point `python -m src.main` + JSONL log + JSON report.
 - [ ] `engine/game_loop.py` — technical-loss detection + re-run.
-- [ ] Unit tests: `tests/test_rules.py`, `tests/test_scoring.py`.
+- [x] Unit tests: `tests/test_rules.py`, `tests/test_scoring.py`,
+  `tests/test_observation.py`, `tests/test_game_loop.py` (both win paths).
 
 ---
 
@@ -73,12 +77,14 @@ Legend: `[ ]` open · `[x]` done · ⭐ optional / bonus.
 
 ## Phase 5 — Joker Protocol (optional extension)
 
-- [ ] `joker/joker.py` — Joker Card lifecycle (grant to sub-game winner).
-- [ ] Inject **one plausible false observation signal** into opponent's `Ωᵢ`.
-- [ ] Enforce boundaries: no second Thief, no teleport, no scoring change,
+- [x] `joker/joker.py` — Joker Card lifecycle (grant to sub-game winner).
+  *(data hooks only, added in Phase 2)*
+- [x] Inject **one plausible false observation signal** into opponent's `Ωᵢ`,
+  logged. *(deterministic placeholder trigger; not a full strategy yet)*
+- [x] Enforce boundaries: no second Thief, no teleport, no scoring change,
   no baseline-rule override.
-- [ ] `tests/test_observation.py` — assert true state `S` is never mutated.
-- [ ] Confirm baseline mode passes with `joker_enabled: false`.
+- [x] `tests/test_observation.py` — assert true state `S` is never mutated.
+- [x] Confirm baseline mode passes with `joker_enabled: false`.
 
 ---
 

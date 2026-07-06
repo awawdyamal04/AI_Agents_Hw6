@@ -1,57 +1,75 @@
-"""CLI entry point (Phase 1 placeholder).
+"""CLI entry point — Phase 2 local deterministic simulation.
+
+Runs a full game (6 sub-games) of the Cop-vs-Thief pursuit using
+deterministic placeholder policies, writes the per-move JSONL trace and the
+final JSON report, and prints a summary.
 
 Run with:
     python -m src.main
 
-This does NOT run the game. Phases 2+ (engine, MCP servers, agents,
-reporting) are not implemented yet. For now this only confirms that the
-project skeleton and configuration are in place.
+Phase 2 limits: no real MCP servers, no LLM calls, no GUI, no Gmail. All
+parameters come from config.json.
 """
 
 from __future__ import annotations
 
 import argparse
-import json
 from pathlib import Path
 
-CONFIG_PATH = Path(__file__).resolve().parent.parent / "config.json"
+from src.config_loader import load_config
+from src.engine.game_loop import run_series
+from src.reporting.report_builder import build_report, write_report
+from src.util.logging_util import JsonlLogger
+
+ROOT = Path(__file__).resolve().parent.parent
+CONFIG_PATH = ROOT / "config.json"
 
 
-def load_config(path: Path = CONFIG_PATH) -> dict:
-    """Load config.json if present. Returns {} if missing (Phase 1 tolerant)."""
-    if not path.exists():
-        return {}
-    with path.open(encoding="utf-8") as fh:
-        return json.load(fh)
+def _resolve(root: Path, value: str) -> Path:
+    p = Path(value)
+    return p if p.is_absolute() else root / p
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(
         prog="src.main",
-        description="MCP Chase: Joker Protocol — Phase 1 skeleton placeholder.",
+        description="MCP Chase: Joker Protocol — Phase 2 local simulation.",
     )
-    parser.add_argument(
-        "--config",
-        type=Path,
-        default=CONFIG_PATH,
-        help="Path to config.json (default: project root config.json).",
-    )
+    parser.add_argument("--config", type=Path, default=CONFIG_PATH,
+                        help="Path to config.json (default: project root).")
     args = parser.parse_args()
 
     config = load_config(args.config)
-    project = config.get("project_name", "MCP Chase: Joker Protocol")
+    rep = config.get("reporting", {})
+    log_path = _resolve(ROOT, rep.get("game_log_path",
+                                      "results/logs/game_log.jsonl"))
+    report_path = _resolve(ROOT, rep.get("final_report_path",
+                                         "results/reports/final_report.json"))
 
-    print(f"[{project}] Phase 1 skeleton is ready.")
-    print("No game logic, agents, or MCP behavior implemented yet.")
-    if config:
-        grid = config.get("grid_size", {})
-        print(
-            f"Config loaded: grid "
-            f"{grid.get('rows', '?')}x{grid.get('cols', '?')}, "
-            f"{config.get('num_subgames', '?')} sub-games."
-        )
-    else:
-        print(f"No config found at {args.config}.")
+    logger = JsonlLogger(log_path)
+    try:
+        results, totals = run_series(config, logger)
+    finally:
+        logger.close()
+
+    report = build_report(config, results, totals)
+    write_report(report, report_path)
+    _print_summary(config, results, totals, log_path, report_path)
+
+
+def _print_summary(config, results, totals, log_path, report_path) -> None:
+    print(f"[{config.get('project_name')}] Phase 2 local simulation complete.")
+    grid = config["grid_size"]
+    print(f"Grid {grid['rows']}x{grid['cols']}, {len(results)} sub-games, "
+          f"joker_enabled={config.get('joker_protocol', {}).get('enabled')}")
+    for r in results:
+        print(f"  sub-game {r['subgame']}: winner={r['winner']:<5} "
+              f"moves={r['moves_played']:>2}  "
+              f"cop+{r['cop_score']:<2} thief+{r['thief_score']:<2} "
+              f"barriers_used={r['barriers_used']}")
+    print(f"Totals: cop={totals.cop}  thief={totals.thief}")
+    print(f"Log:    {log_path}")
+    print(f"Report: {report_path}")
 
 
 if __name__ == "__main__":
