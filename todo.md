@@ -166,9 +166,26 @@ Legend: `[ ]` open · `[x]` done · ⭐ optional / bonus.
 - [ ] `reporting/report_builder.py` — build Internal Game JSON (schema §9).
 - [ ] Write report to `results/reports/game_report.json`.
 - [ ] Ensure report body is **structured JSON only** (no free text).
-- [ ] ⭐ `reporting/gmail_sender.py` — Gmail API (OAuth token) send.
-- [ ] ⭐ Cop agent auto-emails report to `rmisegal+uoh26b@gmail.com`.
+- [x] ⭐ Gmail delivery layer (`src/gmail/`) — Gmail API (OAuth token) send.
+  *(implemented as a `src/gmail/` package: `message_builder.py`, `sender.py`,
+  `cli.py`, rather than `reporting/gmail_sender.py`)*
 - [ ] ⭐ Build Inter-Group Bonus JSON for the bonus tournament.
+
+### Phase 6 — Gmail final-report delivery (assignment EX06 phase 6)
+
+- [x] `src/gmail/message_builder.py` — load + validate `final_report.json`,
+  build subject/body and JSON attachment metadata; base64url MIME for send.
+- [x] `src/gmail/sender.py` — `dry_run` (offline, default) and `send` (real
+  Gmail OAuth); credentials from local paths / env vars, never hard-coded.
+- [x] `src/gmail/cli.py` — `python -m src.gmail.cli --dry-run` (default) and
+  `--send`; dry-run writes `results/reports/email_dry_run.json`.
+- [x] Real send targets `rmisegal+uoh26b@gmail.com`, writes
+  `results/reports/email_send_result.json`; refuses (never fakes) when
+  credentials are missing, printing OAuth setup instructions.
+- [x] `credentials.json`, `token.json`, `.env` gitignored; `.gitkeep` kept.
+- [x] `tests/test_gmail.py` — builder, dry-run output, missing-report failure,
+  send-refuses-without-credentials.
+- [ ] Real Gmail send verified live (needs local `credentials.json` OAuth).
 
 ---
 

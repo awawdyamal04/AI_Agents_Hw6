@@ -338,6 +338,67 @@ pytest tests/                            # full suite
 
 ---
 
+## Phase 6 — Gmail Final-Report Delivery (safe by default)
+
+Phase 6 adds a **Gmail delivery layer** (`src/gmail/`) that emails the
+structured `results/reports/final_report.json` to the course recipient
+(`rmisegal+uoh26b@gmail.com`). It is **dry-run by default** and never sends
+unless you explicitly pass `--send` with real OAuth credentials.
+
+- **`src/gmail/message_builder.py`** — loads + validates the JSON report and
+  builds the email: subject (with totals), a short summary body, and the report
+  itself as a `final_report.json` attachment (base64url MIME for the API).
+- **`src/gmail/sender.py`** — `dry_run` (offline, default) and `send` (real
+  Gmail API over OAuth). Credentials/token come from local paths or environment
+  variables — **never hard-coded**. Missing credentials fail loudly with setup
+  instructions; success is **never faked**.
+- **`src/gmail/cli.py`** — the terminal entry point.
+
+### Dry-run (default — validates + builds, sends nothing)
+
+```bash
+python -m src.gmail.cli --dry-run   # or just: python -m src.gmail.cli
+```
+
+This loads `final_report.json`, validates it is JSON, builds the email
+subject/body/attachment metadata, prints a success summary, and writes
+`results/reports/email_dry_run.json`. **It never contacts the Gmail API.**
+
+### Real send (explicit, requires OAuth)
+
+```bash
+python -m src.gmail.cli --send
+```
+
+This uses the Gmail API to send the report to `rmisegal+uoh26b@gmail.com` and
+writes `results/reports/email_send_result.json` (message id + status). If
+credentials are missing it aborts with setup instructions and sends nothing.
+
+### Where to put credentials (not committed)
+
+1. In Google Cloud Console create an **OAuth 2.0 Client ID (Desktop app)** with
+   the **Gmail API** enabled (see `main-google-api-installtion-guid.pdf`).
+2. Download the client secret JSON and save it as **`./credentials.json`**
+   (or point `GMAIL_CREDENTIALS_PATH` / `--credentials` at it).
+3. Run `python -m src.gmail.cli --send`. A browser opens once for consent; the
+   resulting token is cached at **`./token.json`** (or `GMAIL_TOKEN_PATH` /
+   `--token`).
+
+`credentials.json`, `token.json`, and `.env` are **gitignored and never
+committed** — no secrets, tokens, emails-as-secrets, or API keys live in the
+repo. The **normal project run is still `python -m src.main`**; this layer
+never runs the game.
+
+### Verify Phase 6
+
+```bash
+python -m src.main                 # (re)generate results/reports/final_report.json
+python -m src.gmail.cli --dry-run  # build the email, write email_dry_run.json, no send
+pytest tests/test_gmail.py         # builder, dry-run, missing report, no-credentials
+```
+
+---
+
 ## Architecture
 
 ```mermaid
