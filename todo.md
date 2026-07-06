@@ -6,16 +6,21 @@ natural language → GUI → cloud → Gmail). **Documentation comes first.**
 
 Legend: `[ ]` open · `[x]` done · ⭐ optional / bonus.
 
+**Status (2026-07-06):** assignment Phases 0–6 complete (engine, MCP servers,
+local tool layer, agent reasoning, Gmail dry-run/optional send). **Phase 7
+(submission polish) in progress** — README/report polish done; **final
+verification pass still pending**. GUI intentionally not implemented.
+
 ---
 
-## Phase 0 — Documentation (current)
+## Phase 0 — Documentation (done)
 
 - [x] Read both assignment source PDFs.
 - [x] `prd.md` — requirements, rules, Joker Protocol, evaluation.
 - [x] `plan.md` — architecture, data/execution flow, testing, submission.
 - [x] `todo.md` — this phased checklist.
 - [x] `README.md` — overview, diagram, CLI, current status.
-- [ ] Review docs for alignment with EX06 (no invented results).
+- [x] Review docs for alignment with EX06 (no invented results).
 
 ---
 
@@ -186,6 +191,21 @@ Legend: `[ ]` open · `[x]` done · ⭐ optional / bonus.
 - [x] `tests/test_gmail.py` — builder, dry-run output, missing-report failure,
   send-refuses-without-credentials.
 - [ ] Real Gmail send verified live (needs local `credentials.json` OAuth).
+
+---
+
+## Phase 7 — Submission Polish (in progress)
+
+- [x] Polish `README.md` for submission: title, quick start, run/tests/Gmail
+  dry-run/Ollama commands, outputs, and what is not committed.
+- [x] Add **Requirements Coverage** section mapping each EX06 requirement to code.
+- [x] Add concise **Architecture** section (engine, agents, MCP servers, local
+  MCP-shaped tool layer, reporting, Gmail delivery).
+- [x] Add **Dec-POMDP Mapping** section (`n, S, Aᵢ, P, R, Ωᵢ, O, γ`).
+- [x] Add **Known Notes / Honest Limitations** (deterministic default; Ollama
+  smoke-tested with safe fallback; Gmail not live-sent; no GUI).
+- [x] Update `todo.md` to reflect current status.
+- [ ] Final verification pass (see Phase 8) — still pending.
 
 ---
 
