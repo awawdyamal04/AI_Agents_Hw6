@@ -1,14 +1,16 @@
-"""CLI entry point — Phase 2 local deterministic simulation.
+"""CLI entry point — local deterministic simulation (Phase 4 tool layer).
 
-Runs a full game (6 sub-games) of the Cop-vs-Thief pursuit using
-deterministic placeholder policies, writes the per-move JSONL trace and the
-final JSON report, and prints a summary.
+Runs a full game (6 sub-games) of the Cop-vs-Thief pursuit using deterministic
+placeholder policies. Every Cop/Thief action is routed through the local,
+MCP-shaped tool layer (``cop.*`` / ``thief.*``), writing a per-action JSONL
+trace (each entry carries the tool name, input, result, and any
+natural-language message) and the final JSON report, then prints a summary.
 
 Run with:
     python -m src.main
 
-Phase 2 limits: no real MCP servers, no LLM calls, no GUI, no Gmail. All
-parameters come from config.json.
+Limits (unchanged here): no blocking MCP servers, no LLM calls, no GUI, no
+Gmail. All parameters come from config.json.
 """
 
 from __future__ import annotations
@@ -58,7 +60,8 @@ def main() -> None:
 
 
 def _print_summary(config, results, totals, log_path, report_path) -> None:
-    print(f"[{config.get('project_name')}] Phase 2 local simulation complete.")
+    print(f"[{config.get('project_name')}] local simulation complete "
+          f"(actions routed via MCP-shaped tool layer).")
     grid = config["grid_size"]
     print(f"Grid {grid['rows']}x{grid['cols']}, {len(results)} sub-games, "
           f"joker_enabled={config.get('joker_protocol', {}).get('enabled')}")

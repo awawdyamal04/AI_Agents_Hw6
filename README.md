@@ -2,11 +2,13 @@
 
 > **Course:** Orchestration of AI Agents · **Assignment:** EX06 — Dual AI
 > Agent Conversation via MCP Servers
-> **Current status:** 🟢 **Phase 3 — MCP server layer.** Two separate FastMCP
-> servers (Cop, Thief) now expose the agent tools over MCP, wrapping the
-> existing Phase 2 engine (board, rules, capture, barriers, scoring,
-> observation, Joker hooks). The servers are **tools only** — no LLM.
-> **Not yet implemented: LLM calls, orchestrator/client, GUI, Gmail.**
+> **Current status:** 🟢 **Phase 4 — local tool integration.** The local game
+> loop now routes **every** Cop/Thief action through an explicit, **MCP-shaped
+> tool call** (`cop.observe_board`, `cop.move`, `thief.use_joker_card`, …) via a
+> local tool dispatcher, and logs each call's tool name, input, result, and any
+> natural-language message. The FastMCP servers from Phase 3 remain separate and
+> are **not** started in a normal run. **Not yet implemented: LLM calls,
+> orchestrator over a live MCP transport, GUI, Gmail.**
 
 A dual autonomous AI-agent pursuit game. A **Cop** and a **Thief**, each
 running behind its **own MCP server**, converse in **free natural language**
@@ -201,6 +203,55 @@ in Phase 4.
 
 ---
 
+## Phase 4 — Local Tool Integration
+
+Phase 4 wires the **tool-layer abstraction** into the local game flow. The
+engine (true state `S`) is unchanged; what changes is the **access path**: the
+game loop no longer calls `rules.apply_*` directly — it issues explicit,
+**MCP-shaped tool calls** and lets the tool layer touch the engine.
+
+- **`src/tools/local_adapter.py`** — `LocalToolAdapter`: an in-process
+  implementation of the agent tools that mirrors the FastMCP servers' surface
+  but calls the engine **directly** (no network, no LLM). True state changes
+  still happen only in `Board` + `rules`.
+- **`src/tools/dispatcher.py`** — `ToolDispatcher`: validates, routes, and
+  **logs** every `role.tool` call. It imports the tool names straight from the
+  Phase 3 server modules (`COP_TOOLS`, `THIEF_TOOLS`), so local mode and real
+  MCP mode share **one** tool vocabulary.
+- **`src/tools/messages.py`** — deterministic natural-language message
+  templates (still **no LLM**), so `send_message` carries free-text.
+
+Each turn the loop calls, e.g., `thief.observe_board` → `thief.use_joker_card`
+(only when enabled) → `thief.send_message` → `thief.move`, then
+`cop.observe_board` → `cop.send_message` → `cop.move` / `cop.place_barrier`.
+
+**Local tool adapter vs. real MCP server.** The tool *names* and *shapes* are
+identical; only the transport differs:
+
+| | Local tool adapter (this phase) | Real MCP server (Phase 3 modules) |
+|---|---|---|
+| Where it runs | in-process, same Python call stack | separate FastMCP process, own port |
+| Transport | direct function call | MCP (stdio / streamable-http) |
+| Started in a normal run? | yes (built per sub-game) | **no** — never started by `python -m src.main` |
+| Tool names | `cop.*` / `thief.*` (imported from the servers) | same names, exposed as `@mcp.tool()` |
+| LLM | none | none (LLM lives in the client, later phase) |
+
+Every action is written to `results/logs/game_log.jsonl` as a `tool_call`
+record containing the **agent role**, **tool name** (`role.tool`), **tool
+input**, **tool result**, and the **natural-language message** (or `null`).
+
+### Verify Phase 4
+
+```bash
+python -m src.main
+python -c "import json; print(json.loads(open('results/reports/final_report.json').read())['totals'])"
+python -c "import json; print(next(iter(open('results/logs/game_log.jsonl'))))"
+find src -name "*.py" -exec wc -l {} +   # every file < 150 lines
+pytest tests/test_tool_layer.py          # tool dispatcher + log + joker + run
+```
+
+---
+
 ## Architecture
 
 ```mermaid
@@ -241,11 +292,11 @@ See `plan.md` for the full folder structure and data flow.
 
 ---
 
-## Current Folder Structure (Phase 3)
+## Current Folder Structure (Phase 4)
 
-The engine, local simulation, and the two MCP servers are implemented. The
-orchestrator/LLM client, GUI, and reporting-to-Gmail arrive in later phases per
-`plan.md`.
+The engine, local simulation, the two MCP servers, and the local tool layer are
+implemented. The orchestrator over a live MCP transport, the LLM client, GUI,
+and reporting-to-Gmail arrive in later phases per `plan.md`.
 
 ```
 AI_Agents_Hw6/
@@ -270,11 +321,16 @@ AI_Agents_Hw6/
 │   │   ├── session.py        # FastMCP loader + GameSession (wraps engine)
 │   │   ├── cop_server.py     # Cop tools over MCP
 │   │   └── thief_server.py   # Thief tools over MCP
+│   ├── tools/                # Phase 4: local tool layer (mirrors MCP tools)
+│   │   ├── local_adapter.py  # in-process tools that call the engine directly
+│   │   ├── dispatcher.py     # routes + logs cop.*/thief.* tool calls
+│   │   └── messages.py       # deterministic NL message templates (no LLM)
 │   ├── joker/joker.py        # Joker data hooks (disabled by default)
 │   ├── reporting/report_builder.py  # build final_report.json
 │   └── util/logging_util.py  # JSONL trace writer
 ├── tests/                    # test_rules · test_scoring · test_observation
 │   └── ...                   # test_game_loop · test_skeleton · test_mcp_servers
+│                             # · test_tool_layer (Phase 4)
 └── results/
     ├── logs/game_log.jsonl       # per-move trace (generated)
     ├── reports/final_report.json # series summary (generated)
@@ -287,8 +343,9 @@ AI_Agents_Hw6/
 python -m src.main
 ```
 
-This runs the full local simulation (6 sub-games) and writes
-`results/logs/game_log.jsonl` and `results/reports/final_report.json`.
+This runs the full local simulation (6 sub-games) **through the local tool
+layer** and writes `results/logs/game_log.jsonl` (one `tool_call` record per
+action) and `results/reports/final_report.json`. No MCP server is started.
 
 ## MCP Server Commands (Phase 3 — implemented)
 
@@ -327,24 +384,29 @@ pytest tests/
 
 ## Current Status
 
-**Phase 3 — MCP server layer.** On top of the Phase 2 engine, two independent
-FastMCP servers now expose the agent tools: `src/mcp/cop_server.py`
-(`observe_board`, `receive_message`, `send_message`, `move`, `place_barrier`,
-`get_score`) and `src/mcp/thief_server.py` (same, with `use_joker_card` in
-place of `place_barrier`). Both wrap the existing engine through
-`src/mcp/session.py` — the engine is not rewritten. The servers are **tools
-only**; no LLM runs in them. `create_server()` builds but never runs the
-server, and FastMCP is imported lazily so the modules import cleanly even when
-FastMCP is not installed (`create_server()` then fails with a clear
-`pip install mcp` / `pip install fastmcp` message). `pytest tests/` (28 tests)
-covers the Phase 2 engine plus the new tool surfaces and `GameSession`
-behavior. Every Python file stays under 150 lines.
+**Phase 4 — local tool integration.** On top of the Phase 3 servers, the local
+game loop now routes **every** Cop/Thief action through an explicit,
+MCP-shaped tool call via `src/tools/dispatcher.py` (`ToolDispatcher`) against
+`src/tools/local_adapter.py` (`LocalToolAdapter`). The dispatcher imports the
+tool names from the Phase 3 server modules, so local and MCP modes share one
+vocabulary (`cop.observe_board`, `cop.move`, `cop.place_barrier`,
+`thief.observe_board`, `thief.move`, `thief.use_joker_card`, …). Each call is
+logged as a `tool_call` record with the **agent role**, **tool name**, **tool
+input**, **tool result**, and any **natural-language message**. The engine is
+**not** rewritten — the tool layer is the access path, not a second copy of the
+state; scoring and the sub-game winner stay in the loop. The FastMCP servers
+stay separate and are **never started** by `python -m src.main`. `pytest
+tests/` (34 tests, 1 skipped when FastMCP is absent) now also covers the tool
+dispatcher, log tool-name coverage, the Joker tool's observation-only effect,
+and that a normal run still writes the report and logs. Every Python file stays
+under 150 lines.
 
-**Current limitations:** **no LLM calls yet, no orchestrator/client yet, no GUI
-yet, and no Gmail sending yet.** MCP host/port settings are **local
-`localhost` URLs only** — no cloud URLs are configured or faked. Reported
-outcomes come only from real runs (see *Observed baseline result* above);
-nothing is invented.
+**Current limitations:** **no LLM calls yet, no orchestrator over a live MCP
+transport yet, no GUI yet, and no Gmail sending yet.** The natural-language
+messages are deterministic templates, not model output. MCP host/port settings
+are **local `localhost` URLs only** — no cloud URLs are configured or faked.
+Reported outcomes come only from real runs (see *Observed baseline result*
+above); nothing is invented.
 
 ---
 

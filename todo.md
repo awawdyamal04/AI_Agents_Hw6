@@ -73,6 +73,32 @@ Legend: `[ ]` open · `[x]` done · ⭐ optional / bonus.
 
 ## Phase 4 — Agents & Orchestrator
 
+### Phase 4a — Local tool integration (done)
+
+- [x] `tools/local_adapter.py` — `LocalToolAdapter`: in-process tools that
+  mirror the MCP servers' surface and call the engine directly (no network,
+  no LLM). True state changes stay in `Board` + `rules`.
+- [x] `tools/dispatcher.py` — `ToolDispatcher`: validates, routes, and logs
+  every `cop.*` / `thief.*` tool call. Tool names imported from the Phase 3
+  server modules (`COP_TOOLS`, `THIEF_TOOLS`) so local and MCP modes share one
+  vocabulary.
+- [x] `tools/messages.py` — deterministic natural-language message templates
+  (still no LLM).
+- [x] Route `engine/game_loop.py` actions through the tool layer
+  (`observe_board`, `send_message`, `move`, `place_barrier`,
+  `use_joker_card`) without rewriting the engine.
+- [x] `game_log.jsonl`: per-action `tool_call` record with agent role, tool
+  name, tool input, tool result, and NL message.
+- [x] Keep MCP server modules separate; do **not** start blocking servers in a
+  normal `python -m src.main` run.
+- [x] Joker routed via `thief.use_joker_card`; tool never mutates true state
+  `S` (only injects the opponent's next observation).
+- [x] `tests/test_tool_layer.py` — dispatcher routing, log tool-name coverage,
+  Joker observation-only effect, normal run writes report + logs.
+- [x] Baseline behavior preserved (Cop 120 / Thief 30 on default config).
+
+### Phase 4b — LLM agents over MCP (not started)
+
 - [ ] `agents/llm_client.py` — backend abstraction (cloud API / Ollama / hybrid).
 - [ ] `agents/prompts.py` — prompt templates for Cop and Thief.
 - [ ] `agents/cop_agent.py` — reasoning + natural-language message generation.

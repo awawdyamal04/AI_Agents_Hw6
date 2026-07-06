@@ -15,7 +15,10 @@ def build_report(config: dict, results: list, totals) -> dict:
     joker = config.get("joker_protocol", {})
     return {
         "project_name": config.get("project_name"),
-        "phase": "phase-2-local-simulation",
+        "phase": "phase-4-local-tool-integration",
+        "execution": {"mode": "local",
+                      "tool_layer": "local-adapter",
+                      "tool_names": "mcp-shaped (cop.* / thief.*)"},
         "generated_at": datetime.now().astimezone().isoformat(),
         "timezone": "Asia/Jerusalem",
         "grid_size": config["grid_size"],
@@ -29,7 +32,9 @@ def build_report(config: dict, results: list, totals) -> dict:
                      "thief": "deterministic-greedy-evasion"},
         "sub_games": results,
         "totals": {"cop": totals.cop, "thief": totals.thief},
-        "notes": "Deterministic placeholder policies. No MCP/LLM/GUI/Gmail yet.",
+        "notes": ("Deterministic placeholder policies. Actions routed through "
+                  "the local MCP-shaped tool layer (cop.*/thief.*). No LLM, "
+                  "no GUI, no Gmail, no blocking MCP servers in this run."),
     }
 
 
