@@ -1,0 +1,36 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# --- Virtual environments ---
+.venv/
+venv/
+env/
+
+# --- Secrets / credentials (never commit) ---
+.env
+client_secret*.json
+token*.json
+credentials.json
+*.pem
+
+# --- Generated results (keep folders, ignore contents) ---
+results/logs/*
+results/reports/*
+results/plots/*
+!results/logs/.gitkeep
+!results/reports/.gitkeep
+!results/plots/.gitkeep
+
+# --- OS / editor ---
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

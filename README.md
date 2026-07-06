@@ -2,8 +2,9 @@
 
 > **Course:** Orchestration of AI Agents · **Assignment:** EX06 — Dual AI
 > Agent Conversation via MCP Servers
-> **Current status:** 🟡 **Phase 0 — documentation only. No code has been
-> written yet and no results exist.**
+> **Current status:** 🟡 **Phase 1 — project skeleton + configuration only.
+> No game logic, agents, or MCP behavior implemented yet, and no results
+> exist.**
 
 A dual autonomous AI-agent pursuit game. A **Cop** and a **Thief**, each
 running behind its **own MCP server**, converse in **free natural language**
@@ -124,9 +125,47 @@ See `plan.md` for the full folder structure and data flow.
 
 ---
 
+## Current Folder Structure (Phase 1)
+
+The skeleton and configuration are in place. Implementation modules
+(engine, MCP servers, agents, reporting) will be added in later phases per
+`plan.md`.
+
+```
+AI_Agents_Hw6/
+├── README.md                 # this overview
+├── prd.md                    # product requirements
+├── plan.md                   # architecture + folder/data flow
+├── todo.md                   # phased checklist
+├── config.json               # ALL parameters (no hard-coding)
+├── requirements.txt          # declared dependencies for planned phases
+├── .gitignore                # excludes secrets, caches, generated results
+├── src/
+│   ├── __init__.py
+│   └── main.py               # Phase 1 CLI placeholder (no game logic)
+├── tests/
+│   ├── __init__.py
+│   └── test_skeleton.py      # smoke tests for structure + config
+└── results/                  # generated outputs (empty — nothing produced)
+    ├── logs/                 # per-move dialogue + board snapshots
+    ├── reports/              # game_report.json
+    └── plots/                # optional visualizations
+```
+
+## Planned Run Command
+
+Phase 1 exposes only a placeholder entry point that confirms the skeleton is
+ready — it does **not** run the game:
+
+```bash
+python -m src.main
+```
+
+The full planned CLI (servers, orchestrator, reporting) is listed below.
+
 ## Planned CLI Commands
 
-> These commands are **planned**, not yet implemented (Phase 0).
+> These commands are **planned**, not yet implemented (Phase 1 skeleton only).
 
 ```bash
 # Start the two MCP servers (separate localhost ports)
@@ -156,11 +195,14 @@ pytest tests/
 
 ## Current Status
 
-**Phase 0 — documentation only.** The repository currently contains the four
-lifecycle documents (`prd.md`, `plan.md`, `todo.md`, `README.md`) and the
-assignment source PDFs. **No source code, no runs, and no results exist yet.**
-No performance numbers or game outcomes are reported because none have been
-produced. Implementation begins at Phase 1 per `todo.md`.
+**Phase 1 — project skeleton + configuration.** The repository now contains
+the folder structure, `config.json` with all assignment parameters,
+`requirements.txt`, `.gitignore`, and a placeholder `src/main.py` entry point
+(`python -m src.main`) that only reports the skeleton is ready. **No game
+logic, agents, or MCP behavior has been implemented, no runs have been made,
+and no results exist yet.** No performance numbers or game outcomes are
+reported because none have been produced. Core-engine implementation begins at
+Phase 2 per `todo.md`.
 
 ---
 

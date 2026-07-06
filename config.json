@@ -1,0 +1,40 @@
+{
+  "project_name": "MCP Chase: Joker Protocol",
+  "grid_size": {
+    "rows": 5,
+    "cols": 5
+  },
+  "max_moves_per_subgame": 25,
+  "num_subgames": 6,
+  "max_cop_barriers": 5,
+  "scoring": {
+    "cop_win": 20,
+    "thief_win": 10,
+    "cop_loss": 5,
+    "thief_loss": 5
+  },
+  "joker_protocol": {
+    "enabled": false,
+    "max_cards": 1,
+    "effect": "false_observation_signal_only"
+  },
+  "mcp": {
+    "cop_server": {
+      "host": "localhost",
+      "port": 8001,
+      "auth_token": null
+    },
+    "thief_server": {
+      "host": "localhost",
+      "port": 8002,
+      "auth_token": null
+    }
+  },
+  "reporting": {
+    "json_report_path": "results/reports/game_report.json",
+    "logs_path": "results/logs",
+    "plots_path": "results/plots",
+    "gmail_recipient": "rmisegal+uoh26b@gmail.com",
+    "send_email": false
+  }
+}

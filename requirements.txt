@@ -1,0 +1,25 @@
+# EX06 — MCP Chase: Joker Protocol
+# Phase 1 skeleton: dependencies are declared for planned phases.
+# Nothing here is exercised yet (no game logic / agents / MCP implemented).
+
+# MCP servers (Phase 3)
+fastmcp>=2.0.0
+
+# LLM client backend (Phase 4) — pick one at implementation time
+anthropic>=0.40.0
+
+# Engine numerics (Phase 2)
+numpy>=1.26.0
+
+# Config / environment
+python-dotenv>=1.0.0
+
+# Reporting / optional Gmail delivery (Phase 7)
+google-api-python-client>=2.100.0
+google-auth-oauthlib>=1.2.0
+
+# Optional plotting (Phase 6)
+matplotlib>=3.8.0
+
+# Tests
+pytest>=8.0.0

@@ -21,12 +21,14 @@ Legend: `[ ]` open · `[x]` done · ⭐ optional / bonus.
 
 ## Phase 1 — Project Skeleton
 
-- [ ] Create folder structure (`src/`, `results/`, `tests/`).
-- [ ] Add `requirements.txt` (FastMCP, LLM SDK, numpy, google-api-client).
-- [ ] Add `.env.example` and `.gitignore` (exclude secrets, tokens).
-- [ ] Create `config.json` with all parameters + defaults.
-- [ ] Implement `src/config_loader.py` (load + validate config).
-- [ ] Add empty module stubs (each will stay < 150 lines).
+- [x] Create folder structure (`src/`, `results/logs|reports|plots/`, `tests/`).
+- [x] Add `requirements.txt` (FastMCP, LLM SDK, numpy, google-api-client).
+- [x] Add `.gitignore` (exclude secrets, tokens, caches, generated results).
+- [x] Create `config.json` with all parameters + defaults.
+- [x] Add `src/main.py` CLI placeholder (`python -m src.main`, no game logic).
+- [x] Add Phase 1 smoke test (`tests/test_skeleton.py`) for structure + config.
+- [ ] Implement `src/config_loader.py` (load + validate config).  *(Phase 2)*
+- [ ] Add empty module stubs (each will stay < 150 lines).  *(Phase 2)*
 
 ---
 
